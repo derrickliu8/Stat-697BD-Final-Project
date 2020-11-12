@@ -2,4 +2,5 @@
 
 R code for fastMNN: https://rdrr.io/bioc/batchelor/src/R/fastMNN.R
 
-Data sets from MNN paper: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE72857
+MARS-Seq data from MNN paper: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE72857
+SMART-Seq2 data from MNN paper: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE81682
