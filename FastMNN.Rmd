@@ -7,6 +7,8 @@ This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute
 
 Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
 
+# Functions needed outside the huge fastMNN function
+
 ```{r}
 #' Cosine normalization
 #'
@@ -241,6 +243,166 @@ divideIntoBatches <- function(x, batch, byrow=FALSE, restrict=NULL)
     }
 
     list(batches=output, reorder=reorder, restricted=restricted) 
+}
+```
+
+```{r}
+.reindex_pairings <- function(pairings, new.order) 
+# Restores the MNN pairing indices to the original positions,
+# i.e., after cells have been reordered by 'new.order'.
+{
+    rev.order <- integer(length(new.order))
+    rev.order[new.order] <- seq_along(new.order)
+    for (x in seq_along(pairings)) {
+        current <- pairings[[x]]
+        current$left <- rev.order[current$left]
+        current$right <- rev.order[current$right]
+        pairings[[x]] <- current
+    }
+    pairings
+}
+```
+
+```{r}
+.create_tree_predefined <- function(batches, restrict, merge.order) {
+    if (is.null(merge.order)) {
+        merge.order <- seq_along(batches)
+    }
+
+    if (!is.list(merge.order) && length(merge.order) > 1L) {
+        merge.tree <- list(merge.order[1], merge.order[2])
+        for (i in tail(merge.order, -2L)) {
+            merge.tree <- list(merge.tree, i)
+        }
+    } else {
+        merge.tree <- merge.order
+    }
+
+    merge.tree <- .binarize_tree(merge.tree)
+
+    # Checking validity of leaf identities.
+    leaves <- unlist(merge.tree)
+    if (!is.numeric(leaves)) {
+        leaves <- match(leaves, names(batches))
+    } else {
+        leaves <- as.integer(leaves)
+    }
+    if (any(is.na(leaves)) || anyDuplicated(leaves) || any(leaves < 1) || any(leaves > length(batches))) {
+        stop("invalid leaf nodes specified in 'merge.order'")
+    }
+
+    merge.tree <- relist(leaves, merge.tree)
+    .fill_tree(merge.tree, batches, restrict)
+}
+
+```
+
+```{r}
+.update_tree <- function(merge.tree, path, ...) {
+    if (length(path)==0L) {
+        return(MNN_treenode(...))
+    }
+    merge.tree[[path[1]]] <- .update_tree(merge.tree[[path[[1]]]], path[-1], ...)
+    merge.tree
+}
+```
+
+```{r}
+.get_next_merge <- function(merge.tree, path=NULL) {
+    if (!is.list(merge.tree[[1]]) && !is.list(merge.tree[[2]])) {
+        list(left=merge.tree[[1]], right=merge.tree[[2]], chosen=path)
+    } else if (is.list(merge.tree[[2]])) {
+        .get_next_merge(merge.tree[[2]], c(path, 2L))
+    } else {
+        .get_next_merge(merge.tree[[1]], c(path, 1L))
+    }
+}
+```
+
+```{r}
+# Tree searching for fastMNN(). This requires some care as the
+# search has to orthogonalize each batch before comparing them.
+
+#' @importFrom S4Vectors DataFrame metadata<- metadata
+#' @importClassesFrom S4Vectors List
+.initialize_auto_search <- function(batches, restrict, ...) {
+    remainders <- lapply(seq_along(batches), function(i) {
+        MNN_treenode(index=i, data=batches[[i]], restrict=restrict[[i]])
+    })
+    remainders <- as(remainders, "List")
+
+    collected <- matrix(0L, length(remainders), length(remainders))
+    for (i in seq_along(remainders)) {
+        below <- i - 1L
+        collected[i,seq_len(below)] <- .count_mnn_pairs(remainders[[i]], remainders, upto=below, ...) 
+    }
+
+    metadata(remainders)$pairwise <- collected
+    remainders
+}
+```
+
+```{r}
+.pick_best_merge <- function(remainders) {
+    stats <- metadata(remainders)$pairwise
+    chosen <- which(stats==max(stats), arr.ind=TRUE)[1,]
+    chosen.left <- chosen[1] 
+    chosen.right <- chosen[2] 
+    list(left=remainders[[chosen.left]], right=remainders[[chosen.right]], chosen=chosen)
+}
+```
+
+```{r}
+#' @importFrom S4Vectors metadata<- metadata List
+.fix_names_in_merge_info <- function(output, names) {
+    L1 <- metadata(output)$merge.info$left
+    R1 <- metadata(output)$merge.info$right
+    L2 <- R2 <- List()
+    for (i in seq_along(L1)) {
+        L2[[i]] <- names[L1[[i]]]
+        R2[[i]] <- names[R1[[i]]]
+    }
+    metadata(output)$merge.info$left <- L2
+    metadata(output)$merge.info$right <- R2
+
+    output
+}
+```
+
+```{r}
+.get_node_data <- function(node) node@data
+.get_node_restrict <- function(node) node@restrict
+.get_node_index <- function(node) node@index
+.get_node_origin <- function(node) node@origin
+.get_node_extras <- function(node) node@extras
+```
+
+```{r}
+.restricted_mnn <- function(left.data, left.restrict, right.data, right.restrict, k, prop.k=NULL, ...) {
+    if (!is.null(left.restrict)) {
+        left.data <- left.data[left.restrict,,drop=FALSE]
+    } else {
+        left.data <- left.data
+    }
+
+    if (!is.null(right.restrict)) {
+        right.data <- right.data[right.restrict,,drop=FALSE]
+    } else {
+        right.data <- right.data
+    }
+
+    k1 <- .choose_k(k, prop.k, nrow(left.data))
+    k2 <- .choose_k(k, prop.k, nrow(right.data))
+
+    pairs <- findMutualNN(left.data, right.data, k1=k1, k2=k2, ...)
+    pairs$first <- .unrestrict_indices(pairs$first, left.restrict)
+    pairs$second <- .unrestrict_indices(pairs$second, right.restrict)
+    pairs
+}
+
+.unrestrict_indices <- function(index, restrict) {
+    if (!is.null(restrict)) index <- restrict[index]
+    index
 }
 ```
 
@@ -637,9 +799,11 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     output <- .fast_mnn(batches=divided$batches, restrict=divided$restricted, ..., BPPARAM=BPPARAM)
 
     # Reordering by the input order.        
-    d.reo <- divided$reorder
+    d.reo <- divided$reorder 
     output <- output[d.reo,,drop=FALSE]
     metadata(output)$merge.info$pairs <- .reindex_pairings(metadata(output)$merge.info$pairs, d.reo)
+    #merge.info --> a dataframe in metadata where each row corresponds to a merge step
+    #.reindex_pairings restores the MNN pairing indices to the original positions (i.e., after cells have been reordered by new.order)
 
     .convert_to_SCE(output, mat)
 }
@@ -649,6 +813,8 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
 # Split into a wrapper around a core function to distinguish between 
 # calculations with a pre-defined vs automatically determined merge tree. 
 
+# A "wrapper" wraps, i.e. calls, another function that does the real work but provides a different or more convenient (or more convenient for a specific purpose) interface to it or specific syntax.
+
 #' @importFrom BiocParallel SerialParam
 #' @importFrom BiocNeighbors KmknnParam
 #' @importClassesFrom S4Vectors List
@@ -656,7 +822,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
     merge.order=NULL, auto.merge=FALSE, 
     min.batch.skip=0, BNPARAM=KmknnParam(), BPPARAM=SerialParam()) 
 {
-    if (!auto.merge) {
+    if (!auto.merge) { # if merging is not set to automatic
         merge.tree <- .create_tree_predefined(batches, restrict, merge.order)
         UPDATE <- .update_tree
         NEXT <- .get_next_merge
@@ -723,8 +889,8 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
         # Computing the variance *before* attempting the merge.
         left.old.var <- .compute_perbatch_var(left.data, left.index, left.origin)
         right.old.var <- .compute_perbatch_var(right.data, right.index, right.origin)
-        left.set[[mdx]] <- left.index
-        right.set[[mdx]] <- right.index
+        left.set[[mdx]] <- left.index  # not sure what this is
+        right.set[[mdx]] <- right.index  # not sure what this is either
 
         # Orthogonalizing and obtaining all MNNs.
         right.data <- .orthogonalize_other(right.data, right.restrict, left.extras)
@@ -735,7 +901,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
 
         # Estimate the overall batch vector (implicitly 'restrict'd by definition of MNNs).
         ave.out <- .average_correction(left.data, mnn.sets$first, right.data, mnn.sets$second)
-        overall.batch <- colMeans(ave.out$averaged)
+        overall.batch <- colMeans(ave.out$averaged) # average of averages (?)
 
         do.correct <- TRUE
         if (!is.na(min.batch.skip)) {
@@ -796,7 +962,7 @@ fastMNN <- function(..., batch=NULL, k=20, prop.k=NULL, restrict=NULL, cos.norm=
 
     # Adjusting the output back to the input order in 'batches'.
     if (is.unsorted(full.order)) {
-        ncells.per.batch <- tabulate(full.origin)
+        ncells.per.batch <- tabulate(full.origin) # counts the number of cells in each batch (I believe) and puts the results in a table
         ordering <- .restore_original_order(full.order, ncells.per.batch)
         full.data <- full.data[ordering,,drop=FALSE]
         full.origin <- full.origin[ordering]
