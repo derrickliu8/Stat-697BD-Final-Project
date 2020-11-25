@@ -8,10 +8,13 @@ import sklearn
 import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import Normalizer
+import numpy as np
 
-data1 = pd.read_table("GSE81076_D2_3_7_10_17.txt")
-data2 = pd.read_csv("GSE85241_cellsystems_dataset_4donors_updated.csv")
+#data1 = pd.read_table("GSE81076_D2_3_7_10_17.txt")
+#data2 = pd.read_csv("GSE85241_cellsystems_dataset_4donors_updated.csv")
 
+df1 = pd.DataFrame(np.random.randint(0,100,size=(15, 4)), columns=list('ABCD'))
+df2 = pd.DataFrame(np.random.randint(0,100,size=(15, 4)), columns=list('ABCD'))
 
 def MNNcorrect(data1, data2):
     '''
@@ -26,16 +29,30 @@ def MNNcorrect(data1, data2):
     if len(data1) == 0:
         raise TypeError("Dataset is empty")
  #Renaming the datasets so that the genes are row names       
-    data1 = data1.rename(columns = {"Unnamed: 0":"Genes"}) 
-    data1.set_index(["Genes"], inplace = True)
-    data2 = data2.rename(columns = {"Unnamed: 0":"Genes"}) 
-    data2.set_index(["Genes"], inplace = True)   
+    #data1 = data1.rename(columns = {"Unnamed: 0":"Genes"}) 
+    #data1.set_index(["Genes"], inplace = True)
+    #data2 = data2.rename(columns = {"Unnamed: 0":"Genes"}) 
+    #data2.set_index(["Genes"], inplace = True)   
     
-    transformer = Normalizer().fit(data1g)
-    data1_cnorm = pd.DataFrame(transformer.transform(data1g))
+    #Cosine normalizing the data
+    transformer = Normalizer().fit(data1)
+    data1_cnorm = pd.DataFrame(transformer.transform(data1))
     
+    transformer2 = Normalizer().fit(data2)
+    data2_cnorm = pd.DataFrame(transformer2.transform(data2))
     
-    return(data1_cnorm,data2)
+    #Performing the Nearest Neighbors algorthim
+    NN1 = NearestNeighbors(n_neighbors = 2, algorithm = "kd_tree").fit(data1_cnorm)
+    NN2 = NearestNeighbors(n_neighbors = 2, algorithm = "kd_tree").fit(data2_cnorm)
+    
+    #Putting the nearest neighbors into an array
+    dist1, indices1 = NN1.kneighbors(data1_cnorm)
+    dist2, indices2 = NN2.kneighbors(data2_cnorm)
+    
+    graph1 = NN1.kneighbors_graph(data1_cnorm).toarray()
+    graph2 = NN2.kneighbors_graph(data2_cnorm).toarray()
+    
+    return(graph1,graph2)
    
  
     
