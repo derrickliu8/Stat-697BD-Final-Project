@@ -52,7 +52,18 @@ def MNNcorrect(data1, data2):
     graph1 = NN1.kneighbors_graph(data1_cnorm).toarray()
     graph2 = NN2.kneighbors_graph(data2_cnorm).toarray()
     
-    return(graph1,graph2)
+    #transposing the datasets to multiply them and find the MNN
+    data1T = np.transpose(graph1)
+    data2T = np.transpose(graph2)
+    
+    #W matrix of the indices of MNN
+    #Still working on this
+    W1 = np.concatenate((data1T, data2T))
+    WT = np.transpose(W1)
+    W = W1*WT
+    
+    
+    return(W1)
    
  
     
