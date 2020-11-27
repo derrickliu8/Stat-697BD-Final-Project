@@ -46,11 +46,11 @@ def MNNcorrect(data1, data2):
     NN2 = NearestNeighbors(n_neighbors = 2, algorithm = "kd_tree").fit(data2_cnorm)
     
     #Putting the nearest neighbors into an array
-    dist1, indices1 = NN1.kneighbors(data1_cnorm)
-    dist2, indices2 = NN2.kneighbors(data2_cnorm)
+    dist1, indices1 = NN1.kneighbors(data2_cnorm)
+    dist2, indices2 = NN2.kneighbors(data1_cnorm)
     
-    graph1 = NN1.kneighbors_graph(data1_cnorm).toarray()
-    graph2 = NN2.kneighbors_graph(data2_cnorm).toarray()
+    graph1 = NN1.kneighbors_graph(indices1).toarray()
+    graph2 = NN2.kneighbors_graph(indices2).toarray()
     
     #transposing the datasets to multiply them and find the MNN
     data1T = np.transpose(graph1)
@@ -60,10 +60,10 @@ def MNNcorrect(data1, data2):
     #Still working on this
     W1 = np.concatenate((data1T, data2T))
     WT = np.transpose(W1)
-    W = W1*WT
+   # W = W1*WT
     
     
-    return(W1)
+    return(graph1, graph2)
    
  
     
