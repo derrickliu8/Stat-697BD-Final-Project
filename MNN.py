@@ -14,7 +14,7 @@ from sklearn.neighbors import NearestNeighbors  # for finding nearest neighbors 
 
 # reading in the first pancreas data set
 
-pancreas_data = pd.read_table("GSE81076_D2_3_7_10_17.txt")  
+pancreas_data = pd.read_table('GSE81076_D2_3_7_10_17.txt')  
 pancreas_data
 
 # setting the gene names as the row names
@@ -60,7 +60,7 @@ normalized_pancreas
 
 # reading in the second pancreas data set - gene names are already the row names here
 
-pancreas_data_2 = pd.read_table("GSE85241_cellsystems_dataset_4donors_updated.csv")  
+pancreas_data_2 = pd.read_csv(r'GSE85241_cellsystems_dataset_4donors_updated.csv')  
 pancreas_data_2
 
 # cosine normalization here keeps the gene and cell names in the rows and columns
