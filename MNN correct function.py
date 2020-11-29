@@ -60,9 +60,12 @@ def MNNcorrect(data1, data2):
     #Still working on this
     W1 = data1T*data2T
     WT = np.transpose(W1)
-    W = W1*WT
+    W = W1.dot(WT)
+    Windices = np.transpose(((W1>0)).nonzero())
+
     
-    return(W1)
+    
+    return(W1, Windices)
    
  
     
