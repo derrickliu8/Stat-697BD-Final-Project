@@ -9,6 +9,7 @@ import pandas as pd
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import Normalizer
 import numpy as np
+import pdb
 
 #data1 = pd.read_table("GSE81076_D2_3_7_10_17.txt")
 #data2 = pd.read_csv("GSE85241_cellsystems_dataset_4donors_updated.csv")
@@ -16,9 +17,10 @@ import numpy as np
 df1 = pd.DataFrame(np.random.randint(0,100,size=(15, 4)), columns=list('ABCD'))
 df2 = pd.DataFrame(np.random.randint(0,100,size=(15, 4)), columns=list('ABCD'))
 
-def MNNcorrect(data1, data2):
+def MNNcorrect(data1, data2, n_neighbors = 3):
     '''
     Takes in 2 or more datasets
+    First dataset that is put in will be assumed to be the reference batch
 
     Returns one dataset that has been corrected using the Mutual Nearest Neighbors
     batch correction algorithm
@@ -42,12 +44,24 @@ def MNNcorrect(data1, data2):
     data2_cnorm = pd.DataFrame(transformer2.transform(data2))
     
     #Performing the Nearest Neighbors algorthim
-    NN1 = NearestNeighbors(n_neighbors = 2, algorithm = "kd_tree").fit(data1_cnorm)
-    NN2 = NearestNeighbors(n_neighbors = 2, algorithm = "kd_tree").fit(data2_cnorm)
+    NN1 = NearestNeighbors(n_neighbors = n_neighbors, algorithm = "kd_tree").fit(data1_cnorm)
+    NN2 = NearestNeighbors(n_neighbors = n_neighbors, algorithm = "kd_tree").fit(data2_cnorm)
     
     #Putting the nearest neighbors into an array
+    #dist1 is the bacth correction vectors
     dist1, indices1 = NN1.kneighbors(data2_cnorm)
     dist2, indices2 = NN2.kneighbors(data1_cnorm)
+    
+    #Saving the bacth correction vectors in a dictionary to make it easy to access later
+    correction_vectors = {}
+    for key in range(0,len(indices1)):
+        #breakpoint()
+        correction_vectors[key] = {}
+        dist = list(dist1[key])
+        indices = list(indices1[key])
+        for i in range(0,len(dist)):
+            correction_vectors[key][indices[i]] = dist[i]
+        
     
     graph1 = NN1.kneighbors_graph(data2_cnorm).toarray()
     graph2 = NN2.kneighbors_graph(data1_cnorm).toarray()
@@ -62,10 +76,11 @@ def MNNcorrect(data1, data2):
     WT = np.transpose(W1)
     W = W1.dot(WT)
     Windices = np.transpose(((W1>0)).nonzero())
+    
 
     
     
-    return(W1, Windices)
+    return(correction_vectors, Windices)
    
  
     
