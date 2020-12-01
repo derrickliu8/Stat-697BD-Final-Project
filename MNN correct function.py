@@ -67,20 +67,17 @@ def MNNcorrect(data1, data2, n_neighbors = 3):
     graph2 = NN2.kneighbors_graph(data1_cnorm).toarray()
     
     #transposing the datasets to multiply them and find the MNN
-    data1T = np.transpose(graph1)
     data2T = np.transpose(graph2)
     
     #W matrix of the indices of MNN
     #Still working on this
-    W1 = data1T*data2T
-    WT = np.transpose(W1)
-    W = W1.dot(WT)
+    W1 = np.multiply(data2T,graph1)
     Windices = np.transpose(((W1>0)).nonzero())
     
 
     
     
-    return(correction_vectors, Windices)
+    return(correction_vectors, Windices, W1)
    
  
     
