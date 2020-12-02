@@ -53,6 +53,9 @@ def MNNcorrect(data1, data2, n_neighbors = 3):
     dist2, indices2 = NN2.kneighbors(data1_cnorm)
     
     #Saving the bacth correction vectors in a dictionary to make it easy to access later
+    #the keys in the first dictionary is the cell in the reference batch (row in W)
+    #The keys in the nested dictionary are the cells in the secon batch (columns in w)
+    #The values are the euclidean distance for that MNN
     correction_vectors = {}
     for key in range(0,len(indices1)):
         #breakpoint()
@@ -69,15 +72,26 @@ def MNNcorrect(data1, data2, n_neighbors = 3):
     #transposing the datasets to multiply them and find the MNN
     data2T = np.transpose(graph2)
     
-    #W matrix of the indices of MNN
-    #Still working on this
+    #W matrix of the indices of MNN, Windices are the MNN indices for each batch
+    #[cell in reference batch, cell in second batch]
     W1 = np.multiply(data2T,graph1)
     Windices = np.transpose(((W1>0)).nonzero())
+    
+    #getting the correction vector for each MNN pair
+    for i in Windices:
+        one = i[0]
+        two = i[1]
+        breakpoint()
+        dist = correction_vectors[one][two] 
+    return dist
+       
+        
+   
     
 
     
     
-    return(correction_vectors, Windices, W1)
+    return(correction_vectors, Windices, dist)
    
  
     
