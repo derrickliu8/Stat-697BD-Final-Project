@@ -17,6 +17,15 @@ import pdb
 df1 = pd.DataFrame(np.random.randint(0,100,size=(15, 4)), columns=list('ABCD'))
 df2 = pd.DataFrame(np.random.randint(0,100,size=(15, 4)), columns=list('ABCD'))
 
+
+def my_kernel(X,Y):
+    K = np.zeros((X.shape[0],Y.shape[0]))
+    for i,x in enumerate(X):
+        for j,y in enumerate(Y):
+            K[i,j] = np.exp(-1*np.linalg.norm(x-y)**2)
+    return K
+    
+
 def MNNcorrect(data1, data2, n_neighbors = 3):
     '''
     Takes in 2 or more datasets
@@ -44,8 +53,8 @@ def MNNcorrect(data1, data2, n_neighbors = 3):
     data2_cnorm = pd.DataFrame(transformer2.transform(data2))
     
     #Performing the Nearest Neighbors algorthim
-    NN1 = NearestNeighbors(n_neighbors = n_neighbors, algorithm = "kd_tree").fit(data1_cnorm)
-    NN2 = NearestNeighbors(n_neighbors = n_neighbors, algorithm = "kd_tree").fit(data2_cnorm)
+    NN1 = NearestNeighbors(n_neighbors = n_neighbors, algorithm = "ball_tree").fit(data1_cnorm)
+    NN2 = NearestNeighbors(n_neighbors = n_neighbors, algorithm = "ball_tree").fit(data2_cnorm)
     
     #Putting the nearest neighbors into an array
     #dist1 is the bacth correction vectors
@@ -81,19 +90,15 @@ def MNNcorrect(data1, data2, n_neighbors = 3):
     for i in Windices:
         one = i[0]
         two = i[1]
-        breakpoint()
+        #breakpoint()
         dist = correction_vectors[one][two] 
-    return dist
-       
-        
-   
-    
 
-    
-    
-    return(correction_vectors, Windices, dist)
+    K = my_kernel(data1_cnorm,data2_cnorm)
+
+
+    return(correction_vectors, Windices, K)
    
- 
+
     
     
         
