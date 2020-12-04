@@ -96,7 +96,7 @@ def MNNcorrect(data1, data2, n_neighbors = 3):
     K = my_kernel(data1_cnorm,data2_cnorm)
 
 
-    return(correction_vectors, Windices, K)
+    return(W1)
    
 
     
